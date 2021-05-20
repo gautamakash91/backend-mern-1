@@ -1,7 +1,7 @@
 const express = require("express");
 var app = express();
 var mongo = require("mongodb").MongoClient;
-// var ObjectId = require("mongodb").ObjectID;
+var ObjectId = require("mongodb").ObjectID;
 var port = 8000;
 
 app.use(express.urlencoded({ extended: true }));
@@ -35,6 +35,26 @@ mongo.connect("mongodb://localhost:27017/mern", { useUnifiedTopology: true }, fu
             res.json({ status: true, result: users });
           }
         })
+      } else {
+        res.json({ status: false, message: "some params are missing" });
+      }
+    })
+
+
+    app.post("/get_one_user", (req, res) => {
+      if (
+        req.body.hasOwnProperty("user_id")
+      ) {
+        server.db().collection("users").countDocuments({ }, function(err, result){
+          console.log(result);
+        })
+        // server.db().collection("users").findOne({ _id: new ObjectId(req.body.user_id) }, function (err, doc) {
+        //   if (err) {
+        //     console.log(err)
+        //   } else {
+        //     console.log(doc)
+        //   }
+        // });
       } else {
         res.json({ status: false, message: "some params are missing" });
       }
@@ -78,7 +98,6 @@ mongo.connect("mongodb://localhost:27017/mern", { useUnifiedTopology: true }, fu
         } else {
           server.db().collection("users").insertMany(users, (err, result) => {
             if (err) {
-              console.log(err);
               res.json({ status: false, message: "user could not be added", error: err });
             } else {
               res.json({ status: true, message: "user has been added", output: result.insertedIds });
@@ -88,6 +107,46 @@ mongo.connect("mongodb://localhost:27017/mern", { useUnifiedTopology: true }, fu
       } else {
         res.json({ status: false, message: "some params missing" });
       }
+    })
+
+    app.post("/remove_multiple_users", (req, res) => {
+      var arr = JSON.parse(req.body.user_ids);
+      arr.forEach((id, i) => {
+        arr[i] = new ObjectId(id);
+      })
+
+      server.db().collection("users").deleteMany({ _id: { $in: arr } }, (err, result) => {
+        if (err) {
+          res.json({ status: false, message: "error occured" });
+        } else {
+          res.json({ status: true, message: "documents deleted", result: result });
+        }
+      })
+    })
+
+
+    app.post("/user_details", (req, res) => {
+      var user_details = [];
+      var cursor = server.db().collection("users").aggregate([
+        {
+          $lookup: {
+            from: "gender_count",
+            localField: "gender",
+            foreignField: "gender",
+            as: "count"
+          }
+        }, {
+          $unwind: "$count"
+        }
+      ])
+
+      cursor.forEach((doc, err) => {
+        if (!err) {
+          user_details.push(doc);
+        }
+      }, function () {
+        res.json({ status: true, result: user_details });
+      })
     })
 
 
